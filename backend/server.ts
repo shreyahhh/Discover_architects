@@ -5,6 +5,14 @@ import type { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
+import crypto from 'crypto';
+import axios from 'axios';
+import https from 'https';
+
+// IMPORTANT: The following line disables SSL/TLS certificate validation for all HTTPS requests.
+// This is INSECURE and should ONLY be used for local development to bypass certificate errors.
+// REMOVE THIS LINE IN A PRODUCTION ENVIRONMENT.
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const app = express();
 app.use(cors());
@@ -180,6 +188,89 @@ app.post('/api/dev/add-shreya-sub', (req, res) => {
     const errorMessage = e instanceof Error ? e.message : String(e);
     res.status(500).json({ error: 'Failed to insert subscription', details: errorMessage });
   }
+});
+
+// PhonePe Integration
+const PHONEPE_MERCHANT_ID = 'PGTESTPAYUAT'; // Replace with your Merchant ID
+const PHONEPE_SALT_KEY = '099eb0cd-02cf-4e2a-8aca-3e6c6aff0399'; // Replace with your Salt Key
+const PHONEPE_SALT_INDEX = 1;
+const PHONEPE_PAY_API_URL = 'https://api-preprod.phonepe.com/apis/pg-sandbox/pg/v1/pay';
+const APP_URL = 'http://localhost:3000'; // Replace with your frontend URL
+
+app.post('/api/pay', async (req, res) => {
+  const { amount, plan, userId } = req.body;
+  const merchantTransactionId = `M${Date.now()}`;
+
+  const data = {
+    merchantId: PHONEPE_MERCHANT_ID,
+    merchantTransactionId: merchantTransactionId,
+    merchantUserId: `MUID${userId}`,
+    amount: amount * 100, // Amount in paise
+    redirectUrl: `${APP_URL}/payment-status/${merchantTransactionId}`,
+    redirectMode: 'POST',
+    callbackUrl: 'http://localhost:5000/api/payment/callback', // Replace with your deployed backend URL
+    mobileNumber: '9999999999', // Optional: Can be taken from user profile
+    paymentInstrument: {
+      type: 'PAY_PAGE',
+    },
+  };
+
+  const payload = JSON.stringify(data);
+  const payloadMain = Buffer.from(payload).toString('base64');
+  const keyIndex = PHONEPE_SALT_INDEX;
+  const string = payloadMain + '/pg/v1/pay' + PHONEPE_SALT_KEY;
+  const sha256 = crypto.createHash('sha256').update(string).digest('hex');
+  const checksum = sha256 + '###' + keyIndex;
+
+  // The HttpsAgent is no longer strictly necessary with the global override,
+  // but we'll leave it in case the global override is removed in the future.
+  const httpsAgent = new https.Agent({
+    rejectUnauthorized: false,
+  });
+
+  try {
+    const response = await axios.post(
+      PHONEPE_PAY_API_URL,
+      { request: payloadMain },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-VERIFY': checksum,
+          accept: 'application/json',
+        },
+        httpsAgent,
+      }
+    );
+    res.json(response.data);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error('PhonePe API Error Response:', error.response?.data);
+      console.error('PhonePe API Error Status:', error.response?.status);
+    } else {
+      console.error('Generic Error:', error);
+    }
+    res.status(500).json({ success: false, message: 'Error initiating payment' });
+  }
+});
+
+app.post('/api/payment/callback', (req, res) => {
+  const payload = req.body;
+  
+  // TODO: Verify the checksum from PhonePe to ensure the request is genuine
+  // This requires comparing the 'X-VERIFY' header from the callback
+  // with a checksum generated on your server.
+  
+  console.log('Received PhonePe callback:', payload);
+
+  if (payload.code === 'PAYMENT_SUCCESS') {
+    // TODO: Update subscription status in your database
+    // Use payload.merchantTransactionId to identify the order
+    console.log('Payment was successful for transaction:', payload.merchantTransactionId);
+  } else {
+    console.log('Payment failed or is pending for transaction:', payload.merchantTransactionId);
+  }
+
+  res.status(200).send('Callback received');
 });
 
 const PORT = process.env.PORT || 5000;

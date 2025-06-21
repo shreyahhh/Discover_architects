@@ -34,12 +34,11 @@ interface Subscription {
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [plans, setPlans] = useState<Plan[]>([]);
   const [subs, setSubs] = useState<Record<number, Subscription[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   useEffect(() => {
     if (user && user.role === 'admin') {
@@ -55,9 +54,7 @@ const AdminDashboard: React.FC = () => {
       const usersRes = await fetch('http://localhost:5000/api/admin/users');
       const usersData = await usersRes.json();
       setUsers(usersData);
-      const plansRes = await fetch('http://localhost:5000/api/admin/plans');
-      const plansData = await plansRes.json();
-      setPlans(plansData);
+      
       // Fetch subscriptions for each user
       const allSubs: Record<number, Subscription[]> = {};
       for (const u of usersData) {
@@ -72,23 +69,6 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  // Helper to get the latest period for a subscription
-  const getLatestPeriod = (periods: Period[]): Period | null => {
-    if (!periods || periods.length === 0) return null;
-    return periods.find((p: Period) => !p.period_end) || periods[periods.length - 1];
-  };
-
-  // Group users by plan
-  const usersByPlan: Record<string, UserProfile[]> = {};
-  users.forEach(u => {
-    const userSubs = subs[u.id] || [];
-    const planNames = Array.from(new Set(userSubs.map(s => s.plan_name)));
-    planNames.forEach(plan => {
-      if (!usersByPlan[plan]) usersByPlan[plan] = [];
-      usersByPlan[plan].push(u);
-    });
-  });
-
   // Filter users by search
   const filterUsers = (userList: UserProfile[]) => {
     if (!search.trim()) return userList;
@@ -96,59 +76,96 @@ const AdminDashboard: React.FC = () => {
     return userList.filter(u => u.username.toLowerCase().includes(s) || u.email.toLowerCase().includes(s));
   };
 
-  // Render plan log for selected user
-  const renderUserPlanLog = (userId: number) => {
+  const getSubscriptionInfo = (userId: number): { planName: string; status: string } => {
     const userSubs = subs[userId] || [];
-    if (userSubs.length === 0) return <div className="text-gray-500">No plans found for this user.</div>;
-    // Only show one card per subscription
-    return userSubs.map((sub, i) => {
-      const periods = userSubs.filter(s => s.subscription_id === sub.subscription_id && s.period_id);
-      if (userSubs.findIndex(s => s.subscription_id === sub.subscription_id) !== i) return null;
-      const latestPeriod = getLatestPeriod(periods);
-      const currentStatus = latestPeriod ? latestPeriod.status : sub.status;
-      const statusColor = currentStatus === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
-      return (
-        <div key={sub.subscription_id} className="mb-10">
-          <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="font-bold text-lg mb-1">Plan: {sub.plan_name}</div>
-              <div className="text-gray-700 mb-1">Start Date: {sub.start_date}</div>
-              <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${statusColor}`}>Current Status: {currentStatus ? currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1) : "Unknown"}</span>
-            </div>
+    if (userSubs.length === 0) return { planName: 'No Plan', status: 'N/A' };
+
+    const activeSub = userSubs.find(s => s.status === 'active') || userSubs[0];
+    return {
+      planName: activeSub.plan_name,
+      status: activeSub.status || 'Unknown',
+    };
+  };
+
+  const renderPlanHistoryModal = () => {
+    if (selectedUserId === null) return null;
+
+    const selectedUser = users.find(u => u.id === selectedUserId);
+    if (!selectedUser) return null;
+
+    const userSubs = subs[selectedUserId] || [];
+
+    const getLatestPeriod = (periods: Period[]): Period | null => {
+      if (!periods || periods.length === 0) return null;
+      return periods.find((p: Period) => !p.period_end) || periods[periods.length - 1];
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+            <h2 className="text-2xl font-bold text-gray-800">
+              Plan History: <span className="text-indigo-600">{selectedUser.username}</span>
+            </h2>
+            <button
+              onClick={() => setSelectedUserId(null)}
+              className="text-gray-400 hover:text-gray-600 transition"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
           </div>
-          <div className="mt-4">
-            <div className="font-semibold mb-2">Pause/Resume History:</div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm border-separate border-spacing-y-2 rounded-xl overflow-hidden">
-                <thead>
-                  <tr className="bg-indigo-100">
-                    <th className="px-4 py-3 text-left rounded-tl-xl">Status</th>
-                    <th className="px-4 py-3 text-left">From</th>
-                    <th className="px-4 py-3 text-left rounded-tr-xl">To</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {periods.length > 0 ? periods.map((period, idx) => {
-                    const isCurrent = !period.period_end;
-                    return (
-                      <tr key={period.period_id + '-' + idx} className={
-                        `${isCurrent ? 'bg-green-50 font-bold text-green-900' : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} rounded-xl`}
-                      >
-                        <td className="px-4 py-2 capitalize rounded-l-xl">{period.status}</td>
-                        <td className="px-4 py-2">{period.period_start}</td>
-                        <td className="px-4 py-2 rounded-r-xl">{period.period_end || <span className="italic text-gray-400">Ongoing</span>}</td>
-                      </tr>
-                    );
-                  }) : (
-                    <tr><td colSpan={3} className="px-4 py-2 text-center text-gray-400">No history available</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+          <div className="p-6">
+            {userSubs.length === 0 ? (
+              <div className="text-gray-500 text-center py-8">No subscription history found for this user.</div>
+            ) : (
+              Array.from(new Map(userSubs.map(item => [item['subscription_id'], item])).values()).map((sub, i) => {
+                const periods = userSubs.filter(s => s.subscription_id === sub.subscription_id && s.period_id);
+                const latestPeriod = getLatestPeriod(periods);
+                const currentStatus = latestPeriod?.status || sub.status;
+                const statusColor = currentStatus === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+
+                return (
+                  <div key={sub.subscription_id} className="mb-8 last:mb-0">
+                    <div className="mb-4 p-4 rounded-lg bg-gray-50 border border-gray-200">
+                      <div className="font-bold text-lg text-gray-800">Plan: {sub.plan_name}</div>
+                      <div className="text-sm text-gray-600">Start Date: {new Date(sub.start_date).toLocaleDateString()}</div>
+                      <span className={`mt-2 inline-block px-3 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
+                        Status: {currentStatus ? currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1) : "Unknown"}
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-700 mb-2">Pause/Resume History:</h4>
+                      <div className="overflow-x-auto rounded-lg border border-gray-200">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-gray-100">
+                            <tr className="text-left">
+                              <th className="px-4 py-2 font-medium text-gray-600">Status</th>
+                              <th className="px-4 py-2 font-medium text-gray-600">From</th>
+                              <th className="px-4 py-2 font-medium text-gray-600">To</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {periods.length > 0 ? periods.map((period, idx) => (
+                              <tr key={period.period_id + '-' + idx} className="bg-white">
+                                <td className="px-4 py-2 capitalize">{period.status}</td>
+                                <td className="px-4 py-2">{period.period_start ? new Date(period.period_start).toLocaleDateString() : '-'}</td>
+                                <td className="px-4 py-2">{period.period_end ? new Date(period.period_end).toLocaleDateString() : <span className="italic text-gray-500">Ongoing</span>}</td>
+                              </tr>
+                            )) : (
+                              <tr><td colSpan={3} className="px-4 py-4 text-center text-gray-400">No pause/resume history available.</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
-      );
-    });
+      </div>
+    );
   };
 
   if (!user || user.role !== 'admin') {
@@ -161,64 +178,83 @@ const AdminDashboard: React.FC = () => {
     );
   }
 
+  const filteredUsers = filterUsers(users);
+
   return (
-    <div className="w-full min-h-screen p-2" style={{ background: 'linear-gradient(135deg, #f0f4f8 0%, #e0e7ef 100%)' }}>
-      <h1 className="text-4xl font-extrabold mb-6 text-center text-indigo-900 tracking-tight drop-shadow-lg">Admin: Membership Plans Overview</h1>
-      <div className="flex justify-center mb-10">
-        <input
-          type="text"
-          placeholder="Search by username or email..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-full max-w-md px-5 py-3 border border-gray-300 rounded-xl shadow focus:outline-none focus:ring-2 focus:ring-indigo-300 text-lg"
-        />
-      </div>
-      {loading ? (
-        <div className="text-center text-gray-500">Loading...</div>
-      ) : error ? (
-        <div className="text-center text-red-500">{error}</div>
-      ) : (
-        <div className="space-y-16">
-          {/* Pro Plans Section */}
-          <div>
-            <h2 className="text-2xl font-bold mb-6 text-indigo-800 text-center">Pro Plans</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-              {filterUsers(usersByPlan['Pro'] || []).length === 0 && <div className="text-gray-400 col-span-2 italic">No users with Pro plan.</div>}
-              {filterUsers(usersByPlan['Pro'] || []).map(u => (
-                <div key={u.id} className={`rounded-2xl p-6 bg-gradient-to-br from-transparent via-indigo-50 to-blue-100 shadow-2xl hover:shadow-indigo-400/60 transition-transform duration-200 hover:scale-105 cursor-pointer flex flex-col gap-1 ${selectedUserId === u.id ? 'ring-4 ring-indigo-300' : ''}`} onClick={() => setSelectedUserId(u.id)}>
-                  <div className="font-semibold text-xl text-indigo-900">{u.username}</div>
-                  <div className="text-gray-600 text-base">{u.email}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* Standard Plans Section */}
-          <div>
-            <h2 className="text-2xl font-bold mb-6 text-purple-800 text-center">Standard Plans</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-              {filterUsers(usersByPlan['Standard'] || []).length === 0 && <div className="text-gray-400 col-span-2 italic">No users with Standard plan.</div>}
-              {filterUsers(usersByPlan['Standard'] || []).map(u => (
-                <div key={u.id} className={`rounded-2xl p-6 bg-gradient-to-br from-transparent via-purple-50 to-indigo-100 shadow-2xl hover:shadow-purple-400/60 transition-transform duration-200 hover:scale-102 cursor-pointer flex flex-col gap-1 ${selectedUserId === u.id ? 'ring-4 ring-purple-300' : ''}`} onClick={() => setSelectedUserId(u.id)}>
-                  <div className="font-semibold text-xl text-purple-900">{u.username}</div>
-                  <div className="text-gray-600 text-base">{u.email}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* Selected User Plan Log */}
-          {selectedUserId && (
-            <div className="mt-16 bg-gradient-to-br from-transparent via-blue-50 to-indigo-100 rounded-2xl shadow-2xl p-10 border-2 border-indigo-100">
-              <h2 className="text-2xl font-bold mb-8 text-center text-indigo-800">Plan Log for <span className="text-indigo-900">{users.find(u => u.id === selectedUserId)?.username}</span></h2>
-              {renderUserPlanLog(selectedUserId)}
-              <div className="text-center mt-8">
-                <button className="px-8 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-indigo-200 transition font-semibold shadow" onClick={() => setSelectedUserId(null)}>Back to List</button>
-              </div>
-            </div>
-          )}
+    <div className="w-full min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto">
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Manage user subscriptions and view membership details.
+          </p>
+        </header>
+
+        <div className="mb-6">
+          <input
+            type="text"
+            placeholder="Search by username or email..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
         </div>
-      )}
-      <div className="text-center mt-16">
-        <Link to="/" className="text-blue-600 hover:underline font-medium text-lg">Return Home</Link>
+
+        {loading ? (
+          <div className="text-center text-gray-500">Loading...</div>
+        ) : error ? (
+          <div className="text-center text-red-500">{error}</div>
+        ) : (
+          <div className="bg-white shadow-md rounded-lg overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Username
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Email
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Plan
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredUsers.map(u => {
+                  const subInfo = getSubscriptionInfo(u.id);
+                  const statusColor = subInfo.status === 'active' 
+                    ? 'bg-green-100 text-green-800' 
+                    : subInfo.status === 'paused'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-gray-100 text-gray-800';
+
+                  return (
+                    <tr key={u.id} className="hover:bg-gray-50 cursor-pointer transition" onClick={() => setSelectedUserId(u.id)}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{u.username}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{subInfo.planName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}`}>
+                          {subInfo.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {renderPlanHistoryModal()}
+        <div className="text-center mt-8">
+          <Link to="/" className="text-indigo-600 hover:text-indigo-800 font-medium">
+            Return Home
+          </Link>
+        </div>
       </div>
     </div>
   );
