@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, forwardRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import ArchitecturalElement from '../components/ArchitecturalElement';
 
 const NAV_ITEMS = [
   { id: 'hero', label: 'Home' },
@@ -228,15 +229,66 @@ const Home: React.FC = () => {
       <section
         id="hero"
         ref={(el) => (sectionRefs.current['hero'] = el)}
-        className="relative w-full h-screen bg-cover bg-center"
-        style={{ backgroundImage: "url('/BG.jpg')" }}
+        className="relative w-full h-screen dotted-bg"
       >
-        <div className="absolute inset-0 bg-black/60" />
+        {/* Architectural columns on both sides of the hero text */}
+        <img
+          src="/col-removebg-preview.png"
+          alt="Architectural Column Left"
+          style={{
+            position: 'absolute',
+            left: '2%',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: '320px',
+            maxWidth: '45vw',
+            zIndex: 1,
+            opacity: 0.95,
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+          aria-hidden="true"
+        />
+        <img
+          src="/col-removebg-preview.png"
+          alt="Architectural Column Right"
+          style={{
+            position: 'absolute',
+            right: '2%',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: '320px',
+            maxWidth: '45vw',
+            zIndex: 1,
+            opacity: 0.95,
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+          aria-hidden="true"
+        />
+        {/* Lady statue in the center */}
+        <img
+          src="/lady.png"
+          alt="Lady Statue"
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '340px',
+            maxWidth: '50vw',
+            zIndex: 2,
+            opacity: 0.97,
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+          aria-hidden="true"
+        />
         <div className="relative z-10 max-w-screen-xl mx-auto px-4 h-full flex flex-col items-center justify-center text-center">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white mb-4 tracking-tight [text-shadow:0_4px_8px_rgba(0,0,0,0.5)] scroll-animate">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 mb-4 tracking-tight scroll-animate">
             Discover Architects and Interior Designs
           </h1>
-          <p className="mt-4 mb-10 text-2xl sm:text-2xl font-light text-blue-200 italic [text-shadow:0_2px_4px_rgba(0,0,0,0.5)] scroll-animate" style={{ transitionDelay: '200ms' }}>
+          <p className="mt-4 mb-10 text-2xl sm:text-2xl font-light text-indigo-700 italic scroll-animate" style={{ transitionDelay: '200ms' }}>
             An Architecture and Interior Designing Platform With a Unique Spin
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-6 scroll-animate" style={{ transitionDelay: '400ms' }}>
@@ -271,7 +323,7 @@ const Home: React.FC = () => {
               <span className="block text-gray-900 font-bold" style={{ fontFamily: 'Times New Roman, Times, serif', fontSize: '3.5rem', lineHeight: 1.1 }}>
                 Simple subscription.
               </span>
-              <span className="block text-indigo-700" style={{ fontFamily: 'Satisfy, cursive', fontSize: '5rem', lineHeight: 1.1 }}>
+              <span className="block text-indigo-700" style={{ fontFamily: 'Satisfy, cursive', fontStyle: 'italic', fontSize: '5rem', lineHeight: 1.1 }}>
                 Limitless impact.
               </span>
             </div>
@@ -406,7 +458,7 @@ const Home: React.FC = () => {
         <section className="w-full">
           <div className="max-w-screen-xl mx-auto px-4 py-24 grid md:grid-cols-2 gap-16 items-start">
             {/* Left Column: Testimonial */}
-            <div className="bg-gradient-to-br from-orange-400 via-pink-500 to-blue-600 rounded-2xl p-8 lg:p-12 text-white relative h-full flex flex-col justify-center scroll-animate border-2 border-white/20 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25),_inset_0_2px_8px_rgba(255,255,255,0.6)]">
+            <div className="bg-gradient-to-br from-orange-400 via-pink-500 to-blue-600 rounded-2xl p-8 lg:p-12 text-white relative h-full flex flex-col justify-center scroll-animate border-2 border-white/20 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25),_inset_0_2px_8px_rgba(255,255,255,0.6)]" style={{fontFamily: 'Times New Roman, serif'}}>
               <span className="absolute top-8 left-8 text-6xl text-white/40 font-serif">"</span>
               <div className="relative pt-8">
                 <blockquote className="text-3xl lg:text-4xl font-bold leading-tight">
@@ -419,7 +471,7 @@ const Home: React.FC = () => {
             </div>
 
             {/* Right Column: Features */}
-            <div className="space-y-12 pt-8 scroll-animate" style={{ transitionDelay: '200ms' }}>
+            <div className="space-y-12 pt-8 scroll-animate" style={{ transitionDelay: '200ms', fontFamily: 'Times New Roman, serif' }}>
               <div>
                 <h4 className="text-2xl font-bold text-gray-800 mb-3">Early Collaboration</h4>
                 <p className="text-gray-600 text-lg leading-relaxed">
@@ -461,7 +513,7 @@ const Home: React.FC = () => {
                 />
               </div>
             </div>
-            <p className="text-center text-gray-600 mt-6 text-lg">
+            <p className="text-center text-gray-600 mt-6 text-lg" style={{fontFamily: 'Times New Roman, serif'}}>
               Designs commonly made using HPCL, Vipasana, Gurukul.
             </p>
           </div>
@@ -472,6 +524,7 @@ const Home: React.FC = () => {
           id="services"
           ref={(el) => (sectionRefs.current['services'] = el)}
           className="w-full"
+          style={{fontFamily: 'Times New Roman, serif'}}
         >
           <div className="max-w-screen-xl mx-auto px-4 py-24">
             <h2 className="text-center text-gray-900 font-bold mb-10 scroll-animate" style={{ fontFamily: 'Times New Roman, Times, serif', fontSize: '3.5rem', lineHeight: 1.1 }}>
