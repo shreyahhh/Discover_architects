@@ -66,7 +66,9 @@ This project is **in progress**. Some features may be incomplete or under develo
   <img src="https://github.com/user-attachments/assets/66317239-71a8-4ae0-bbd5-800c36e3ca61" alt="FAQs" width="45%" />
   <img src="https://github.com/user-attachments/assets/9d0310a0-1745-473e-a31b-a8743a2fc388" alt="Exit" width="45%" />
 </p>
+
 ## Admin Dashboard
+
 <p align="center">
   <img src="https://github.com/user-attachments/assets/a36de1cd-d5cd-425b-8c83-93f902f2899d" alt="Admin Actions" width="45%" />
   <img src="https://github.com/user-attachments/assets/0f53f7d8-720e-4f57-b97d-91f798388902" alt="Admin Dashboard" width="45%" />
