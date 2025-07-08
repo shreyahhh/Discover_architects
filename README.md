@@ -12,38 +12,6 @@ Discover Architects is a web platform for architecture and interior design servi
 - **Database:** SQLite (via better-sqlite3)
 - **Other:** Supabase (for authentication), Multer (for file uploads)
 
-## How to Run the Project
-
-### 1. Clone the Repository
-```
-git clone <repo-url>
-cd Discover_architects-master
-```
-
-### 2. Install Dependencies
-#### Frontend
-```
-npm install
-```
-#### Backend
-```
-cd backend
-npm install
-```
-
-### 3. Start the Project
-#### Start Backend
-```
-cd backend
-npm start
-```
-#### Start Frontend (in a new terminal)
-```
-cd ..
-npm start
-```
-- The frontend will run at [http://localhost:3000](http://localhost:3000)
-- The backend will run at [http://localhost:5000](http://localhost:5000)
 
 ## Features
 - User authentication (with Supabase)
@@ -75,5 +43,37 @@ This project is **in progress**. Some features may be incomplete or under develo
 </p>
 
 
-<!-- Add more screenshots as your UI evolves -->
+## How to Run the Project
+
+### 1. Clone the Repository
+```
+git clone <repo-url>
+cd Discover_architects-master
+```
+
+### 2. Install Dependencies
+#### Frontend
+```
+npm install
+```
+#### Backend
+```
+cd backend
+npm install
+```
+
+### 3. Start the Project
+#### Start Backend
+```
+cd backend
+npm start
+```
+
+#### Start Frontend (in a new terminal)
+```
+cd ..
+npm start
+```
+- The frontend will run at [http://localhost:3000](http://localhost:3000)
+- The backend will run at [http://localhost:5000](http://localhost:5000)
 
