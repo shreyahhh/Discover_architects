@@ -57,15 +57,21 @@ This project is **in progress**. Some features may be incomplete or under develo
 
 ## UI Screenshots
 
-![Mmebership Benefits](https://github.com/user-attachments/assets/1249d963-bb69-4d6a-b4f3-218494e87e74)
-![FAQs](https://github.com/user-attachments/assets/66317239-71a8-4ae0-bbd5-800c36e3ca61)
-![Exit](https://github.com/user-attachments/assets/9d0310a0-1745-473e-a31b-a8743a2fc388)
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/1249d963-bb69-4d6a-b4f3-218494e87e74" alt="Membership Benefits" width="45%" />
+  <img src="https://github.com/user-attachments/assets/661b572c-0672-4959-887a-88468dcc52de" alt="Services" width="45%" />
+</p>
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/66317239-71a8-4ae0-bbd5-800c36e3ca61" alt="FAQs" width="45%" />
+  <img src="https://github.com/user-attachments/assets/9d0310a0-1745-473e-a31b-a8743a2fc388" alt="Exit" width="45%" />
+</p>
+## Admin Dashboard
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/a36de1cd-d5cd-425b-8c83-93f902f2899d" alt="Admin Actions" width="45%" />
+  <img src="https://github.com/user-attachments/assets/0f53f7d8-720e-4f57-b97d-91f798388902" alt="Admin Dashboard" width="45%" />
+</p>
 
-
-
-- ![Landing Page](public/showcase.jpg)
-- ![Gallery Example](public/showcase2.webp)
 
 <!-- Add more screenshots as your UI evolves -->
 
