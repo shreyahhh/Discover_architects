@@ -9,16 +9,36 @@ Discover Architects is a web platform for architecture and interior design servi
 ## Tech Stack
 - **Frontend:** React, TypeScript, Tailwind CSS
 - **Backend:** Node.js, Express, TypeScript
-- **Database:** SQLite (via better-sqlite3)
-- **Other:** Supabase (for authentication), Multer (for file uploads)
+- **Database & Storage:** Supabase (Postgres + Storage), accessed only from the Express backend
+- **Other:** Multer (for handling uploads before they're streamed to Supabase Storage)
 
 
 ## Features
-- User authentication (with Supabase)
+- User authentication (custom email/password auth, backed by Supabase Postgres)
 - Admin dashboard to manage users and plans
 - User dashboard to view and manage subscriptions
-- Gallery for design inspiration
+- Gallery for design inspiration (images stored in Supabase Storage)
 - Membership plans and subscription management
+- Job postings and job applications (admin-managed postings, resume upload stored in Supabase Storage) — backend/API only so far, frontend pages are a follow-up
+
+## Database Setup (Supabase)
+
+The Express backend is the only thing that talks to the database; it uses the
+Supabase **service role** key, so the frontend never connects to Supabase
+directly.
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. In the Supabase SQL Editor, run the migrations in
+   [`supabase/migrations`](supabase/migrations) in order
+   (`0001_init.sql`, then `0002_storage.sql`). This creates all tables and
+   the private `gallery` and `resumes` storage buckets.
+3. Copy `backend/.env.example` to `backend/.env` and fill in `SUPABASE_URL`
+   and `SUPABASE_SERVICE_ROLE_KEY` from your project's API settings.
+4. There is no default admin account anymore. Create your own with:
+   ```
+   cd backend
+   ADMIN_EMAIL=you@example.com ADMIN_USERNAME=admin ADMIN_PASSWORD='a-strong-password' npm run create-admin
+   ```
 
 ## Status
 This project is **in progress**. Some features may be incomplete or under development.

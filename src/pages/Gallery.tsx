@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { GalleryImage } from '../types';
+import Loader from '../components/ui/loader';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
@@ -111,7 +112,7 @@ const Gallery: React.FC = () => {
         </form>
       )}
       {loading ? (
-        <div className="text-center text-gray-500">Loading...</div>
+        <div className="py-12"><Loader label="Loading gallery..." /></div>
       ) : error ? (
         <div className="text-center text-red-500">{error}</div>
       ) : (

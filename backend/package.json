@@ -6,25 +6,27 @@
   "scripts": {
     "start": "ts-node server.ts",
     "dev": "nodemon --exec ts-node server.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "create-admin": "ts-node scripts/createAdmin.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.3",
-    "@types/better-sqlite3": "^7.6.13",
+    "archiver": "^7.0.1",
     "axios": "^1.10.0",
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^8.7.0",
     "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
     "express": "^4.21.2",
     "multer": "^2.0.1"
   },
   "devDependencies": {
+    "@types/archiver": "^6.0.4",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^4.17.23",
     "@types/multer": "^1.4.13",
     "@types/node": "^18.15.11",
-    "nodemon": "^2.0.22",
+    "nodemon": "^3.1.14",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   }

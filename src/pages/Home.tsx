@@ -1,7 +1,10 @@
-import React, { useRef, useEffect, useState, forwardRef } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useRef, useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import ArchitecturalElement from '../components/ArchitecturalElement';
+import ShapeHero from '../components/ShapeHero';
+import Loader from '../components/ui/loader';
+import { API_URL, authHeaders } from '../utils/api';
 
 const NAV_ITEMS = [
   { id: 'hero', label: 'Home' },
@@ -12,7 +15,9 @@ const NAV_ITEMS = [
   { id: 'contact', label: 'Contact' },
 ];
 
-const MembershipBenefitsGrid = forwardRef<HTMLDivElement>((props, ref) => {
+const MembershipBenefitsGrid: React.FC = () => {
+  const trackRef = useRef<HTMLDivElement>(null);
+
   const benefits = [
     { 
       title: 'Design board', 
@@ -76,10 +81,59 @@ const MembershipBenefitsGrid = forwardRef<HTMLDivElement>((props, ref) => {
     },
   ];
 
+  // Render the list twice back-to-back so the track can scroll from the
+  // first copy into the second and reset seamlessly, for an endless loop.
+  const loopedBenefits = [...benefits, ...benefits];
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    const SPEED_PX_PER_SEC = 24; // slow, continuous drift
+    let rafId: number;
+    let paused = false;
+    let lastTime: number | null = null;
+    // Tracked in a plain JS variable (not read back from track.scrollLeft)
+    // so the sub-pixel-per-frame movement isn't lost to the DOM rounding
+    // scrollLeft to a whole number on every read.
+    let offset = track.scrollLeft;
+
+    const step = (time: number) => {
+      if (lastTime === null) lastTime = time;
+      const dt = time - lastTime;
+      lastTime = time;
+
+      if (!paused && track) {
+        const singleSetWidth = track.scrollWidth / 2;
+        if (singleSetWidth > 0) {
+          offset = (offset + (SPEED_PX_PER_SEC * dt) / 1000) % singleSetWidth;
+          track.scrollLeft = offset;
+        }
+      }
+      rafId = requestAnimationFrame(step);
+    };
+    rafId = requestAnimationFrame(step);
+
+    // Pause while the user hovers so they can read a card, resume on leave.
+    const handleEnter = () => { paused = true; };
+    const handleLeave = () => { paused = false; };
+    track.addEventListener('mouseenter', handleEnter);
+    track.addEventListener('mouseleave', handleLeave);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      track.removeEventListener('mouseenter', handleEnter);
+      track.removeEventListener('mouseleave', handleLeave);
+    };
+  }, []);
+
   return (
-    <div ref={ref} className="flex gap-x-8 overflow-x-auto pb-8 scrollbar-hide" style={{ scrollSnapType: 'x mandatory' }}>
-      {benefits.map((benefit, i) => (
-        <div key={i} className="text-left flex-shrink-0 w-64" style={{ scrollSnapAlign: 'start' }}>
+    <div
+      ref={trackRef}
+      className="flex gap-x-8 overflow-x-hidden pb-8 scrollbar-hide"
+    >
+      {loopedBenefits.map((benefit, i) => (
+        <div key={i} className="text-left flex-shrink-0 w-64">
           <div className={`relative w-full aspect-square bg-gradient-to-br ${benefit.gradient} rounded-3xl flex items-center justify-center mb-5 shadow-lg`}>
             <div className="absolute inset-0 bg-black/5 rounded-3xl"></div>
             {benefit.icon}
@@ -90,13 +144,13 @@ const MembershipBenefitsGrid = forwardRef<HTMLDivElement>((props, ref) => {
       ))}
     </div>
   );
-});
+};
 
 const Home: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('hero');
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({});
-  const benefitsScrollRef = useRef<HTMLDivElement>(null);
   const [userSubs, setUserSubs] = useState<any[]>([]);
   const [loadingSubs, setLoadingSubs] = useState(false);
 
@@ -152,11 +206,15 @@ const Home: React.FC = () => {
     }
   };
 
-  const scrollBenefits = () => {
-    if (benefitsScrollRef.current) {
-      benefitsScrollRef.current.scrollBy({ left: 300, behavior: 'smooth' });
-    }
-  };
+  // Support links like "/#plans" from other pages (e.g. the "View
+  // membership plans" prompt on the user dashboard's empty state).
+  useEffect(() => {
+    const id = window.location.hash.replace('#', '');
+    if (!id) return;
+    const timer = setTimeout(() => scrollToSection(id), 100);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!document.getElementById('satisfy-font')) {
@@ -168,19 +226,24 @@ const Home: React.FC = () => {
     }
   }, []);
 
-  // PhonePe Payment Handler
+  // PhonePe Payment Handler. A subscription always belongs to a real user
+  // (subscriptions.user_id is a required FK), so there's no such thing as a
+  // guest purchase in this schema — send unauthenticated visitors to log in
+  // first rather than let them start a payment that could never be attached
+  // to an account.
   const handlePhonePePayment = async (amount: number, plan: string) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     try {
-      const response = await fetch('http://localhost:5000/api/pay', {
+      const response = await fetch(`${API_URL}/api/pay`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders(),
         },
-        body: JSON.stringify({
-          amount,
-          plan,
-          userId: user ? user.id : 'GUEST',
-        }),
+        body: JSON.stringify({ amount, plan }),
       });
 
       const data = await response.json();
@@ -199,9 +262,13 @@ const Home: React.FC = () => {
   useEffect(() => {
     if (user) {
       setLoadingSubs(true);
-      fetch(`/api/admin/user/${user.id}/subscriptions`)
-        .then(res => res.json())
+      fetch(`${API_URL}/api/me/subscriptions`, { headers: authHeaders() })
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to load subscriptions');
+          return res.json();
+        })
         .then(data => setUserSubs(data))
+        .catch(() => setUserSubs([]))
         .finally(() => setLoadingSubs(false));
     }
   }, [user]);
@@ -223,49 +290,42 @@ const Home: React.FC = () => {
             {item.label}
           </button>
         ))}
+        <button
+          onClick={() => navigate('/careers')}
+          className="whitespace-nowrap text-sm font-semibold px-3 py-1.5 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-black bg-gradient-to-r from-yellow-400 to-orange-500 text-black hover:from-yellow-300 hover:to-orange-400"
+        >
+          Careers
+        </button>
       </nav>
 
       {/* Hero Section */}
       <section
         id="hero"
         ref={(el) => (sectionRefs.current['hero'] = el)}
-        className="relative w-full h-screen dotted-bg overflow-hidden"
+        className="relative w-full"
       >
-        {/* Video background */}
-        <video
-          className="absolute inset-0 w-full h-full object-cover z-0"
-          src="/Discover_landing_page.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-        />
-        {/* Overlay for readability */}
-        <div className="absolute inset-0 bg-black bg-opacity-60 z-0" />
-        <div className="relative z-10 max-w-screen-xl mx-auto px-4 h-full flex flex-col items-center justify-center text-center">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white mb-4 tracking-tight scroll-animate" style={{ textShadow: '0 4px 24px rgba(0,0,0,0.9), 0 1.5px 0 #000' }}>
-            Discover Architects and Interior Designs
-          </h1>
-          <p className="mt-4 mb-10 text-2xl sm:text-2xl font-light text-white italic scroll-animate" style={{ transitionDelay: '200ms', textShadow: '0 2px 12px rgba(0,0,0,0.8), 0 1px 0 #000' }}>
-            An Architecture and Interior Designing Platform With a Unique Spin
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-6 scroll-animate" style={{ transitionDelay: '400ms' }}>
-            {!user && (
+        <ShapeHero
+          title="Discover Architects and Interior Designs"
+          subtitle="An Architecture and Interior Designing Platform With a Unique Spin"
+          actions={
+            <div className="flex flex-col sm:flex-row justify-center gap-6">
+              {!user && (
+                <Link
+                  to="/signup"
+                  className="inline-block px-8 py-3 rounded-full bg-gradient-to-r from-indigo-500 to-blue-500 text-white text-lg font-semibold shadow-lg hover:from-indigo-600 hover:to-blue-600 transition-all duration-200"
+                >
+                  Sign Up
+                </Link>
+              )}
               <Link
-                to="/signup"
-                className="inline-block px-8 py-3 rounded-full bg-gradient-to-r from-indigo-500 to-blue-500 text-white text-lg font-semibold shadow-lg hover:from-indigo-600 hover:to-blue-600 transition-all duration-200"
+                to="/gallery"
+                className="inline-block px-12 py-5 rounded-full bg-gradient-to-r from-pink-600 to-indigo-700 text-white font-bold text-xl shadow-lg border-0 hover:from-pink-700 hover:to-indigo-800 hover:scale-105 transition-all duration-200"
               >
-                Sign Up
+                View Gallery
               </Link>
-            )}
-            <Link
-              to="/gallery"
-              className="inline-block px-12 py-5 rounded-full bg-gradient-to-r from-pink-600 to-indigo-700 text-white font-bold text-xl shadow-lg border-0 hover:from-pink-700 hover:to-indigo-800 hover:scale-105 transition-all duration-200"
-            >
-              View Gallery
-            </Link>
-          </div>
-        </div>
+            </div>
+          }
+        />
       </section>
 
       {/* Subsequent sections */}
@@ -357,16 +417,7 @@ const Home: React.FC = () => {
               </h2>
             </div>
             <div className="relative scroll-animate" style={{ transitionDelay: '200ms' }}>
-              <MembershipBenefitsGrid ref={benefitsScrollRef} />
-              <button
-                onClick={scrollBenefits}
-                className="absolute top-32 -translate-y-1/2 -right-4 z-10 bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition hidden md:flex items-center justify-center"
-                aria-label="Scroll right"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
-              </button>
+              <MembershipBenefitsGrid />
             </div>
           </div>
         </section>
@@ -578,6 +629,24 @@ const Home: React.FC = () => {
           </div>
         </section>
 
+        {/* Careers Section */}
+        <div className="w-full dotted-bg-dark py-20 px-4 scroll-animate">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4" style={{ fontFamily: 'Georgia, Times New Roman, Times, serif' }}>
+              Careers
+            </h2>
+            <p className="text-gray-300 text-lg mb-8 max-w-2xl mx-auto">
+              Interested in joining Discover Architects? Browse any current openings, or send us your resume — we review every submission and reach out when there's a fit.
+            </p>
+            <Link
+              to="/careers"
+              className="inline-flex items-center px-8 py-3 rounded-full bg-white text-black font-semibold hover:bg-gray-100 transition"
+            >
+              View careers &amp; apply
+            </Link>
+          </div>
+        </div>
+
         {/* Contact Section */}
         <section
           id="contact"
@@ -653,7 +722,7 @@ const Home: React.FC = () => {
             <div className="max-w-2xl mx-auto px-4">
               <h2 className="text-2xl font-bold mb-4 text-center">Your Membership</h2>
               {loadingSubs ? (
-                <div className="text-center text-gray-500">Loading membership...</div>
+                <div className="py-8"><Loader label="Loading membership..." /></div>
               ) : (
                 <div className="space-y-4">
                   {userSubs.map((sub, i) => (

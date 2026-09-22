@@ -65,7 +65,7 @@ export const api = {
   },
 
   validateToken: async (): Promise<User | null> => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('token');
     if (!token) return null;
 
     const response = await fetch(`${API_URL}/auth/validate`, {
@@ -91,7 +91,7 @@ export const api = {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
       body: JSON.stringify(data),
     });
@@ -102,7 +102,7 @@ export const api = {
   },
 
   logout: async (): Promise<void> => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('token');
     if (!token) return;
 
     await fetch(`${API_URL}/auth/logout`, {
@@ -130,7 +130,7 @@ export const api = {
       method: 'POST',
       body: formData,
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
       },
     });
     if (!response.ok) {
@@ -143,7 +143,7 @@ export const api = {
     const response = await fetch(`${API_URL}/api/gallery/${id}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
       },
     });
     if (!response.ok) {
