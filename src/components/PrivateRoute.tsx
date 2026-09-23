@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import Loader from './ui/loader';
 
 interface PrivateRouteProps {
   children: React.ReactNode;
@@ -11,7 +12,11 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiredRole }) =
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <Loader />
+      </div>
+    );
   }
 
   if (!user) {

@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import AdminCareersPanel from '../components/AdminCareersPanel';
+import Loader from '../components/ui/loader';
+import { API_URL, authHeaders } from '../utils/api';
 
 interface UserProfile {
   id: number;
   email: string;
   username: string;
   role: string;
+  full_name: string | null;
+  city: string | null;
+  state: string | null;
   user_created_at: string;
   profile_created_at: string;
   updated_at: string;
@@ -39,6 +45,7 @@ const AdminDashboard: React.FC = () => {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'users' | 'careers'>('users');
 
   useEffect(() => {
     if (user && user.role === 'admin') {
@@ -51,14 +58,15 @@ const AdminDashboard: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const usersRes = await fetch('http://localhost:5000/api/admin/users');
+      const usersRes = await fetch(`${API_URL}/api/admin/users`, { headers: authHeaders() });
+      if (!usersRes.ok) throw new Error('Failed to fetch users');
       const usersData = await usersRes.json();
       setUsers(usersData);
-      
+
       // Fetch subscriptions for each user
       const allSubs: Record<number, Subscription[]> = {};
       for (const u of usersData) {
-        const subRes = await fetch(`http://localhost:5000/api/admin/user/${u.id}/subscriptions`);
+        const subRes = await fetch(`${API_URL}/api/admin/user/${u.id}/subscriptions`, { headers: authHeaders() });
         allSubs[u.id] = await subRes.json();
       }
       setSubs(allSubs);
@@ -73,7 +81,11 @@ const AdminDashboard: React.FC = () => {
   const filterUsers = (userList: UserProfile[]) => {
     if (!search.trim()) return userList;
     const s = search.trim().toLowerCase();
-    return userList.filter(u => u.username.toLowerCase().includes(s) || u.email.toLowerCase().includes(s));
+    return userList.filter(u =>
+      u.username.toLowerCase().includes(s) ||
+      u.email.toLowerCase().includes(s) ||
+      (u.full_name || '').toLowerCase().includes(s)
+    );
   };
 
   const getSubscriptionInfo = (userId: number): { planName: string; status: string } => {
@@ -105,7 +117,7 @@ const AdminDashboard: React.FC = () => {
         <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           <div className="p-6 border-b border-gray-200 flex justify-between items-center">
             <h2 className="text-2xl font-bold text-gray-800">
-              Plan History: <span className="text-indigo-600">{selectedUser.username}</span>
+              Plan History: <span className="text-indigo-600">{selectedUser.full_name || selectedUser.username}</span>
             </h2>
             <button
               onClick={() => setSelectedUserId(null)}
@@ -186,10 +198,33 @@ const AdminDashboard: React.FC = () => {
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Manage user subscriptions and view membership details.
+            Manage user subscriptions, job postings, and candidate applications.
           </p>
         </header>
 
+        <div className="mb-8 flex gap-2 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`px-4 py-2 text-sm font-semibold border-b-2 transition ${
+              activeTab === 'users' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Users & Subscriptions
+          </button>
+          <button
+            onClick={() => setActiveTab('careers')}
+            className={`px-4 py-2 text-sm font-semibold border-b-2 transition ${
+              activeTab === 'careers' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Careers
+          </button>
+        </div>
+
+        {activeTab === 'careers' && <AdminCareersPanel />}
+
+        {activeTab === 'users' && (
+        <>
         <div className="mb-6">
           <input
             type="text"
@@ -201,7 +236,7 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="text-center text-gray-500">Loading...</div>
+          <div className="py-12"><Loader label="Loading users..." /></div>
         ) : error ? (
           <div className="text-center text-red-500">{error}</div>
         ) : (
@@ -210,10 +245,16 @@ const AdminDashboard: React.FC = () => {
               <thead className="bg-gray-100">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Username
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Email
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Location
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Plan
@@ -226,16 +267,19 @@ const AdminDashboard: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredUsers.map(u => {
                   const subInfo = getSubscriptionInfo(u.id);
-                  const statusColor = subInfo.status === 'active' 
-                    ? 'bg-green-100 text-green-800' 
+                  const statusColor = subInfo.status === 'active'
+                    ? 'bg-green-100 text-green-800'
                     : subInfo.status === 'paused'
                     ? 'bg-yellow-100 text-yellow-800'
                     : 'bg-gray-100 text-gray-800';
+                  const location = [u.city, u.state].filter(Boolean).join(', ');
 
                   return (
                     <tr key={u.id} className="hover:bg-gray-50 cursor-pointer transition" onClick={() => setSelectedUserId(u.id)}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{u.username}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{u.full_name || <span className="text-gray-400 italic">Not provided</span>}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.username}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{location || <span className="text-gray-400 italic">—</span>}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{subInfo.planName}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}`}>
@@ -250,6 +294,9 @@ const AdminDashboard: React.FC = () => {
           </div>
         )}
         {renderPlanHistoryModal()}
+        </>
+        )}
+
         <div className="text-center mt-8">
           <Link to="/" className="text-indigo-600 hover:text-indigo-800 font-medium">
             Return Home

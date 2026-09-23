@@ -2,12 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, Navigate } from 'react-router-dom';
 import dayjs from 'dayjs';
+import { API_URL, authHeaders } from '../utils/api';
+import Loader from '../components/ui/loader';
 
 const UserDashboard: React.FC = () => {
   const { user } = useAuth();
   const [userSubs, setUserSubs] = useState<any[]>([]);
   const [loadingSubs, setLoadingSubs] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [subsError, setSubsError] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -19,23 +22,40 @@ const UserDashboard: React.FC = () => {
   const fetchSubs = () => {
     if (!user) return;
     setLoadingSubs(true);
-    fetch(`http://localhost:5000/api/admin/user/${user.id}/subscriptions`)
-      .then(res => res.json())
+    setSubsError('');
+    fetch(`${API_URL}/api/me/subscriptions`, { headers: authHeaders() })
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to load membership');
+        return res.json();
+      })
       .then(data => setUserSubs(data))
+      .catch(() => setSubsError('Could not load your membership details. Please try again shortly.'))
       .finally(() => setLoadingSubs(false));
   };
 
   const handlePause = async (subId: number) => {
     setActionLoading(true);
-    await fetch(`http://localhost:5000/api/admin/subscription/${subId}/pause`, { method: 'POST' });
-    fetchSubs();
-    setActionLoading(false);
+    try {
+      const res = await fetch(`${API_URL}/api/me/subscriptions/${subId}/pause`, { method: 'POST', headers: authHeaders() });
+      if (!res.ok) throw new Error('Failed to pause');
+      fetchSubs();
+    } catch (e) {
+      setSubsError('Failed to pause your subscription. Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
   };
   const handleResume = async (subId: number) => {
     setActionLoading(true);
-    await fetch(`http://localhost:5000/api/admin/subscription/${subId}/resume`, { method: 'POST' });
-    fetchSubs();
-    setActionLoading(false);
+    try {
+      const res = await fetch(`${API_URL}/api/me/subscriptions/${subId}/resume`, { method: 'POST', headers: authHeaders() });
+      if (!res.ok) throw new Error('Failed to resume');
+      fetchSubs();
+    } catch (e) {
+      setSubsError('Failed to resume your subscription. Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   // Find the latest period for each subscription to determine the true current status
@@ -58,8 +78,11 @@ const UserDashboard: React.FC = () => {
       {infoMsg && (
         <div className="mb-4 text-center text-yellow-700 bg-yellow-100 border border-yellow-300 rounded px-4 py-2">{infoMsg}</div>
       )}
+      {subsError && (
+        <div className="mb-4 text-center text-red-700 bg-red-100 border border-red-300 rounded px-4 py-2">{subsError}</div>
+      )}
       {loadingSubs ? (
-        <div className="text-center text-gray-500">Loading membership...</div>
+        <div className="py-12"><Loader label="Loading membership..." /></div>
       ) : userSubs.length > 0 ? (
         <div className="space-y-8">
           {userSubs.map((sub, i) => {
@@ -133,7 +156,23 @@ const UserDashboard: React.FC = () => {
           })}
         </div>
       ) : (
-        <div className="text-center text-gray-500">You do not have an active membership plan.</div>
+        <div className="bg-white border border-gray-200 rounded-3xl shadow-sm p-10 text-center">
+          <div className="mx-auto mb-6 w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">No active membership yet</h2>
+          <p className="text-gray-500 max-w-sm mx-auto mb-6">
+            Choose a plan to unlock full access to Discover Architects — you'll see it here once you're subscribed.
+          </p>
+          <Link
+            to="/#plans"
+            className="inline-flex items-center px-6 py-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-blue-500 text-white font-semibold shadow hover:from-indigo-600 hover:to-blue-600 transition"
+          >
+            View membership plans
+          </Link>
+        </div>
       )}
       <div className="text-center mt-8">
         <Link to="/" className="text-blue-600 hover:underline">Return Home</Link>
